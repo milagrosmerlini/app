@@ -154,6 +154,7 @@ p{margin:0}
   width: 100%;
   font-size: 15px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .billDenCell{
   position: relative;
@@ -223,24 +224,24 @@ p{margin:0}
     font-size: 13px;
   }
   .billCounterRow{
-    grid-template-columns: minmax(68px, 1fr) minmax(158px, 1.45fr) minmax(68px, 1fr);
+    grid-template-columns: minmax(64px, .95fr) minmax(176px, 1.45fr) minmax(96px, 1.1fr);
     padding: 8px;
     gap: 6px;
   }
   .billQtyControls{
-    grid-template-columns: 32px 72px 32px;
+    grid-template-columns: 38px 84px 38px;
     gap: 3px;
     width: auto;
   }
   .billCounterActionBtn{
-    min-width: 34px;
-    min-height: 34px;
-    font-size: 16px;
+    min-width: 38px;
+    min-height: 38px;
+    font-size: 18px;
   }
   .billCountInput{
-    width: 72px;
-    height: 34px;
-    font-size: 17px;
+    width: 84px;
+    height: 38px;
+    font-size: 18px;
     padding: 0 4px;
     border-radius: 999px;
   }
