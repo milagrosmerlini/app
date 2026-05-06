@@ -1,16 +1,16 @@
-const CACHE_VERSION = "20260420-1";
+const SW_URL = new URL(self.location.href);
+const CACHE_VERSION = SW_URL.searchParams.get("v") || "dev";
 const APP_SHELL_CACHE = `cubanitos-app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `cubanitos-runtime-${CACHE_VERSION}`;
 const APP_SHELL_URLS = [
   "./",
   "./index.html",
-  "./style.css?v=20260330-20",
-  "./app.js?v=20260420-1",
-  "./manifest.json?v=20260312-1",
-  "./logo.png?v=20260329-1",
-  "./logo.png?v=20260312-1",
+  "./style.css",
+  "./app.js",
+  "./manifest.json",
+  "./logo.png",
   "./version.json",
-  "./vendor/xlsx/xlsx.full.min.js?v=20260313-1",
+  "./vendor/xlsx/xlsx.full.min.js",
 ];
 const CDN_HOSTS = new Set([
   "unpkg.com",
