@@ -10,5 +10,6 @@ Si la caja inicial aparece en `0` o sin historial al abrir desde otro dispositiv
 - Si falla guardado de promos personalizadas (mensaje de migracion faltante), ejecutar:
   - `APP_CUBANITOS_PATAGONIA/supabase/08_product_promotions_schema_patch.sql`
   - `APP_CUBANITOS_PATAGONIA/supabase/09_custom_promotions.sql`
+  - `APP_CUBANITOS_PATAGONIA/supabase/10_sales_peya_schema_patch.sql`
 
 Luego abrir una vez la app en `Go Live` con usuario admin para que sincronice a nube el historial local existente.

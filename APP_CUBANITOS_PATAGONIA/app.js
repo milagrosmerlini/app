@@ -78,6 +78,7 @@ let hasCashAdjustTable = true;
 let hasExpenseOptionsTable = true;
 let hasProductPromotionsTable = true;
 let hasCustomPromotionsTable = true;
+let hasSalesPeyaColumn = true;
 let syncingOfflineQueue = false;
 let expensesExpanded = false;
 let savingSaleInFlight = false;
@@ -4604,12 +4605,13 @@ async function insertSaleToDB(sale) {
     total: sale.totals.total,
     cash: sale.totals.cash,
     transfer: sale.totals.transfer,
-    peya: Number(sale.totals.peya || 0),
   };
+  if (hasSalesPeyaColumn) payload.peya = Number(sale.totals.peya || 0);
 
   let { error } = await window.supabase.from("sales").insert(payload);
   if (!error) return;
   if (String(error.message || "").toLowerCase().includes("peya")) {
+    hasSalesPeyaColumn = false;
     const { peya, ...fallback } = payload;
     const retry = await window.supabase.from("sales").insert(fallback);
     if (!retry.error) return;
@@ -4632,11 +4634,12 @@ async function updateSaleInDB(sale) {
     total: sale.totals.total,
     cash: sale.totals.cash,
     transfer: sale.totals.transfer,
-    peya: Number(sale.totals.peya || 0),
   };
+  if (hasSalesPeyaColumn) payload.peya = Number(sale.totals.peya || 0);
   let { error } = await window.supabase.from("sales").update(payload).eq("id", sale.id);
   if (!error) return;
   if (String(error.message || "").toLowerCase().includes("peya")) {
+    hasSalesPeyaColumn = false;
     const { peya, ...fallback } = payload;
     const retry = await window.supabase.from("sales").update(fallback).eq("id", sale.id);
     if (!retry.error) return;
