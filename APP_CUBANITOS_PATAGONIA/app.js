@@ -751,6 +751,7 @@ const PROVIDER_RULES = {
 const ADD_NEW_SELECT_VALUE = "__add_new__";
 const MAX_EXPENSE_DESC_LEN = 120;
 const DB_REQUEST_TIMEOUT_MS = 12000;
+const DB_PAGE_SIZE = 1000;
 const SALE_DB_WRITE_TIMEOUT_MS = Math.min(DB_REQUEST_TIMEOUT_MS, 7000);
 const EXPENSE_DB_WRITE_TIMEOUT_MS = Math.max(DB_REQUEST_TIMEOUT_MS, 20000);
 const EXPENSE_DB_FLOW_TIMEOUT_MS = Math.max(DB_REQUEST_TIMEOUT_MS, 22000);
@@ -3954,17 +3955,26 @@ async function loadSalesFromDB() {
   let data = null;
   let error = null;
   try {
-    const res = await withTimeout(
-      window.supabase
-        .from("sales")
-        .select("*")
-        .order("day", { ascending: true })
-        .order("time", { ascending: true }),
-      DB_REQUEST_TIMEOUT_MS,
-      "al cargar ventas"
-    );
-    data = res?.data || null;
-    error = res?.error || null;
+    data = [];
+    for (let offset = 0; ; offset += DB_PAGE_SIZE) {
+      const res = await withTimeout(
+        window.supabase
+          .from("sales")
+          .select("*")
+          .order("day", { ascending: true })
+          .order("time", { ascending: true })
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(offset, offset + DB_PAGE_SIZE - 1),
+        DB_REQUEST_TIMEOUT_MS,
+        "al cargar ventas"
+      );
+      error = res?.error || null;
+      if (error) break;
+      const page = Array.isArray(res?.data) ? res.data : [];
+      data.push(...page);
+      if (page.length < DB_PAGE_SIZE) break;
+    }
   } catch (e) {
     if (!isLikelyNetworkError(e)) console.error(e);
     salesLoadState = "fallback";
