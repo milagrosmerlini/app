@@ -407,14 +407,15 @@ const editNoteEl = $("#edit-note");
 
 const catalogLockNoteEl = $("#catalog-lock-note");
 const priceEditorListEl = $("#price-editor-list");
+const promoEditorListEl = $("#promo-editor-list");
 const catalogMsgEl = $("#catalog-msg");
-const btnSavePrices = $("#btn-save-prices");
 const btnAddProduct = $("#btn-add-product");
 
 const tabPresencial = $("#tab-presencial");
 const tabPedidosYa = $("#tab-pedidosya");
 
 let pedidosyaDiscountPct = 0;
+let expandedPriceEditorSku = "";
 
 function getSkus() {
   const rank = { cubanito_comun: 1, cubanito_negro: 2, cubanito_blanco: 3, garrapinadas: 4 };
@@ -1584,6 +1585,16 @@ async function upsertProductToDB(p) {
   if (error) throw error;
 }
 
+async function deleteProductBySku(sku) {
+  if (!hasSupabaseClient()) throw new Error("Sin internet. No se pudo eliminar el producto.");
+  const { error } = await window.supabase
+    .from("products")
+    .delete()
+    .eq("demo_id", activeDemo.id)
+    .eq("sku", sku);
+  if (error) throw error;
+}
+
 function applyLoadedSales(nextSales) {
   if (!Array.isArray(nextSales)) return false;
   const fallbackEmpty = salesLoadState !== "ok" && nextSales.length === 0 && Array.isArray(sales) && sales.length > 0;
@@ -2133,7 +2144,7 @@ function setEditEnabled(enabled) {
     b.style.pointerEvents = enabled ? "auto" : "none";
   });
 
-  [btnSavePrices, btnAddProduct, ...$$("#tab-editar input")].forEach((el) => {
+  [btnAddProduct, ...$$("#tab-editar input")].forEach((el) => {
     if (!el) return;
     el.disabled = !enabled;
     el.style.opacity = enabled ? "1" : "0.75";
@@ -2466,58 +2477,131 @@ productsGridEl?.addEventListener("input", (e) => {
 });
 
 function renderEdit() {
+  if (promoEditorListEl) {
+    promoEditorListEl.innerHTML = `
+      <div class="priceEditorRow promoCreatorRow">
+        <div class="promoSection is-open" data-promo-section="active">
+          <button class="promoSectionToggle" type="button" aria-expanded="true">
+            <strong>Promos vigentes</strong>
+            <span class="promoSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="promoSectionBody">
+            <div class="promoCreatorSummary">
+              <div class="tiny muted">No hay promos activas todavía.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
   if (!priceEditorListEl) return;
   if (!products.length) {
+    expandedPriceEditorSku = "";
     priceEditorListEl.innerHTML = `<div class="muted tiny">No hay productos.</div>`;
     return;
   }
 
+  if (!products.some((p) => p.sku === expandedPriceEditorSku)) {
+    expandedPriceEditorSku = "";
+  }
+
   priceEditorListEl.innerHTML = products
     .map(
-      (p) => `
-    <div class="priceEditorRow" data-sku="${p.sku}">
-      <div class="priceEditorName"><strong>${p.name}</strong><div class="muted tiny">${p.unit || "Unidad"}</div></div>
-      <div class="editPrices">
+      (p) => {
+        const isOpen = p.sku === expandedPriceEditorSku;
+        return `
+    <div class="priceEditorRow${isOpen ? " is-open" : ""}" data-sku="${p.sku}">
+      <button class="priceEditorToggle" type="button" data-toggle-price-editor="${p.sku}" aria-expanded="${isOpen ? "true" : "false"}">
+        <strong>${p.name}</strong>
+        <span class="priceEditorChevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="editPrices priceEditorDetails">
         <label class="field"><span>Presencial</span><input type="number" min="0" step="50" data-price-edit="presencial" data-sku="${p.sku}" value="${p.prices.presencial}" /></label>
+        <div class="actions" style="grid-column:1/-1; margin-top:6px;">
+          <button class="btn tinyBtn" type="button" data-save-product="${p.sku}">Guardar cambios</button>
+          <button class="btn danger ghost tinyBtn" type="button" data-delete-product="${p.sku}">Eliminar producto</button>
+        </div>
       </div>
-    </div>`
+    </div>`;
+      }
     )
     .join("");
 }
 
-btnSavePrices?.addEventListener("click", async () => {
-  if (!isAdmin) return setCatalogMsg("Solo admin puede editar precios.");
-  try {
-    let changed = 0;
-    for (const inp of $$('[data-price-edit]')) {
-      const sku = inp.getAttribute("data-sku");
-      const channel = inp.getAttribute("data-price-edit");
-      const p = getProduct(sku);
-      if (!p || !channel) continue;
-      const nextValue = Math.max(0, Number(inp.value || 0));
-      if (Number(p.prices[channel] || 0) !== nextValue) changed += 1;
-      p.prices[channel] = nextValue;
+priceEditorListEl?.addEventListener("click", async (e) => {
+  const saveBtn = e.target.closest("[data-save-product]");
+  if (saveBtn) {
+    if (!isAdmin) return setCatalogMsg("Solo admin puede editar precios.");
+    const sku = String(saveBtn.getAttribute("data-save-product") || "").trim();
+    const p = getProduct(sku);
+    if (!sku || !p) return;
+    const row = saveBtn.closest(".priceEditorRow");
+    const inpPres = row?.querySelector?.(`[data-price-edit="presencial"][data-sku="${sku}"]`);
+    if (!inpPres) return setCatalogMsg("No se pudo leer el precio.");
+
+    const nextPres = Math.max(0, Number(inpPres.value || 0));
+    const changed = Number(p.prices?.presencial || 0) !== nextPres;
+    p.prices.presencial = nextPres;
+
+    try {
+      await upsertProductToDB(p);
+      saveListCache(LS_PRODUCTS_KEY, products);
+      renderProductsGrid();
+      renderAll();
+      setCatalogMsg(changed ? `Cambios guardados: ${p.name}.` : `Sin cambios en ${p.name}.`);
+    } catch (err) {
+      console.error(err);
+      setCatalogMsg(`Error guardando cambios de ${p.name}: ${err?.message || "sin detalle"}`);
     }
-
-    const payload = products.map((p) => ({
-      demo_id: activeDemo.id,
-      sku: p.sku,
-      name: p.sku === "garrapinadas" ? "Garrapiñadas" : p.name,
-      unit: p.unit || "Unidad",
-      price_presencial: Number(p.prices?.presencial || 0),
-      price_pedidosya: Number(p.prices?.pedidosya || 0),
-    }));
-    const { error } = await window.supabase.from("products").upsert(payload, { onConflict: "demo_id,sku" });
-    if (error) throw error;
-
-    saveListCache(LS_PRODUCTS_KEY, products);
-    renderProductsGrid();
-    renderAll();
-    setCatalogMsg(changed > 0 ? `Precios guardados (${changed} cambios).` : "No habia cambios para guardar.");
-  } catch (e) {
-    console.error(e);
-    setCatalogMsg(`Error guardando precios: ${e?.message || "sin detalle"}`);
+    return;
   }
+
+  const deleteBtn = e.target.closest("[data-delete-product]");
+  if (deleteBtn) {
+    if (!isAdmin) return setCatalogMsg("Solo admin puede eliminar productos.");
+    const sku = String(deleteBtn.getAttribute("data-delete-product") || "").trim();
+    const product = getProduct(sku);
+    if (!sku || !product) return;
+    const ok = confirm(`¿Eliminar producto "${product.name}"?\nEsta acción no se puede deshacer.`);
+    if (!ok) return;
+    try {
+      await deleteProductBySku(sku);
+      products = products.filter((p) => String(p.sku) !== String(sku));
+      for (const ch of ["presencial", "pedidosya"]) {
+        if (!cartByChannel[ch]) continue;
+        delete cartByChannel[ch][sku];
+      }
+      if (expandedPriceEditorSku === sku) expandedPriceEditorSku = "";
+      productsGridSignature = "";
+      saveListCache(LS_PRODUCTS_KEY, products);
+      renderAll();
+      setCatalogMsg(`Producto eliminado: ${product.name}.`);
+    } catch (err) {
+      console.error(err);
+      setCatalogMsg(`Error eliminando producto: ${err?.message || "sin detalle"}`);
+    }
+    return;
+  }
+
+  const toggle = e.target.closest("[data-toggle-price-editor]");
+  if (!toggle) return;
+  const sku = toggle.getAttribute("data-toggle-price-editor");
+  if (!sku) return;
+  const nextOpen = expandedPriceEditorSku !== sku;
+  const prevOpenRow = priceEditorListEl.querySelector(".priceEditorRow.is-open");
+  if (prevOpenRow) {
+    prevOpenRow.classList.remove("is-open");
+    prevOpenRow.querySelector("[data-toggle-price-editor]")?.setAttribute("aria-expanded", "false");
+  }
+  if (!nextOpen) {
+    expandedPriceEditorSku = "";
+    return;
+  }
+  expandedPriceEditorSku = sku;
+  const row = toggle.closest(".priceEditorRow");
+  if (!row) return;
+  row.classList.add("is-open");
+  toggle.setAttribute("aria-expanded", "true");
 });
 
 btnAddProduct?.addEventListener("click", async () => {
