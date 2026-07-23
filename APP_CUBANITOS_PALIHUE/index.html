@@ -6,11 +6,16 @@
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Plantilla Carrito</title>
+  <title>Cubanitos Palihue</title>
 
-  <link rel="stylesheet" href="style.css?v=20260723-4">
-  <link rel="manifest" href="manifest.json?v=20260312-1">
-  <meta name="theme-color" content="#c97a2b">
+  <meta name="description" content="Aplicación de caja de Cubanitos Palihue">
+  <meta name="application-name" content="Cubanitos Palihue">
+  <meta name="apple-mobile-web-app-title" content="Palihue">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="style.css?v=20260723-5">
+  <link rel="manifest" href="manifest.json?v=20260723-1">
+  <meta name="theme-color" content="#b3262e">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&display=swap" rel="stylesheet">
@@ -18,15 +23,21 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
-  <link rel="icon" href="logo.png?v=20260312-1">
-  <link rel="apple-touch-icon" href="logo.png?v=20260312-1">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=20260723-1">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=20260723-1">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260723-1">
 </head>
 
 <body>
+  <div class="app-splash" id="app-splash" aria-hidden="true">
+    <img src="logo.png?v=20260723-1" alt="">
+    <span>Cubanitos Palihue</span>
+  </div>
+
   <header class="topbar">
     <div class="header-left">
       <div class="logo">
-        <img id="brand-logo" src="logo.png" alt="Logo del negocio">
+        <img id="brand-logo" src="logo.png?v=20260723-1" alt="Logo de Cubanitos Palihue">
       </div>
     </div>
 
@@ -800,6 +811,13 @@
       logoEl.src = logoUrl;
       logoEl.alt = appName;
     }
+    const splashEl = document.getElementById("app-splash");
+    if (splashEl) {
+      window.setTimeout(() => {
+        splashEl.classList.add("app-splash--hidden");
+        window.setTimeout(() => splashEl.remove(), 350);
+      }, 650);
+    }
 
     const normalizeSupabaseUrl = (value) => {
       const raw = String(value || "").trim();
@@ -849,7 +867,7 @@
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
   <script src="vendor/xlsx/xlsx.full.min.js?v=20260312-1"></script>
-  <script src="app.js?v=20260723-3"></script>
+  <script src="app.js?v=20260723-4"></script>
 </body>
 </html>
 

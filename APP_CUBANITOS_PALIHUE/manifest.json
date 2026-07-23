@@ -1,23 +1,38 @@
 {
-  "name": "Mi Carrito",
-  "short_name": "Carrito",
+  "id": "./",
+  "name": "Cubanitos Palihue",
+  "short_name": "Palihue",
+  "description": "Aplicación de caja de Cubanitos Palihue",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#f6f1e8",
-  "theme_color": "#c97a2b",
+  "theme_color": "#b3262e",
   "icons": [
     {
-      "src": "logo.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "logo.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
