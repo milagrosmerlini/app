@@ -8,6 +8,7 @@ Esta guia es para usar una sola demo generica con varias nubes internas, una por
 2. En `SQL Editor`, ejecuta:
    - `supabase/01_base_cliente_nuevo.sql`
    - `supabase/03_seed_demo.sql`
+   - `supabase/05_secciones_productos.sql`
 3. En `Auth > Users`, crea el usuario admin con email y contrasena.
 4. En `supabase/02_alta_admin.sql`, cambia el email y el `demo_id` del carro, y ejecutalo.
 5. Copia:
@@ -19,7 +20,7 @@ Esta guia es para usar una sola demo generica con varias nubes internas, una por
    - `SUPABASE_ANON_KEY`
    - `ADMIN_EMAIL`
 
-Si ese proyecto ya tenia la base vieja de la plantilla, ejecuta primero `supabase/04_migrar_base_vieja_a_multi_carro.sql`, despues `supabase/01_base_cliente_nuevo.sql` y despues `supabase/03_seed_demo.sql`.
+Si ese proyecto ya tenia la base vieja de la plantilla, ejecuta primero `supabase/04_migrar_base_vieja_a_multi_carro.sql`, despues `supabase/01_base_cliente_nuevo.sql`, `supabase/03_seed_demo.sql` y por ultimo `supabase/05_secciones_productos.sql`.
 
 ## 2. Codigos incluidos en la demo
 

@@ -1427,6 +1427,80 @@ body.pedidosya-mode #total{
 /* =========================
    EDITAR (catalogo)
 ========================= */
+.productSectionTabs{
+  display:flex;
+  align-items:stretch;
+  gap:0;
+  overflow-x:auto;
+  padding:10px 0 0;
+  margin:12px 0 0;
+  border-top:1px solid var(--line);
+  scrollbar-width:thin;
+}
+.productSectionTab{
+  flex:1 1 0;
+  min-width:88px;
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:0;
+  background:transparent;
+  color:var(--muted);
+  padding:9px 10px 8px;
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .2s ease, color .2s ease, border-color .2s ease;
+}
+.productSectionTab:hover{
+  color:var(--text);
+  background:var(--select-strong-hover);
+}
+.productSectionTab.is-active{
+  color:var(--accent2);
+  border-bottom-color:var(--accent);
+  background:linear-gradient(180deg, transparent, rgba(201,122,43,.09));
+}
+body.pedidosya-mode .productSectionTab.is-active{
+  color:var(--py-red-end);
+  border-bottom-color:var(--py-red-start);
+  background:linear-gradient(180deg, transparent, rgba(229,57,53,.10));
+}
+.productSectionEmpty{
+  grid-column:1/-1;
+  text-align:center;
+}
+.sectionEditorList{
+  display:grid;
+  gap:8px;
+  margin-top:12px;
+}
+.sectionEditorRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--block-bg);
+  box-shadow:var(--block-depth-shadow);
+}
+.sectionEditorInfo{
+  min-width:0;
+}
+.sectionEditorInfo strong{
+  display:block;
+}
+.sectionCreateRow{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:end;
+  gap:10px;
+  margin-top:12px;
+}
+
 .priceEditorList{
   display:flex;
   flex-direction:column;
@@ -1632,6 +1706,12 @@ body.pedidosya-mode #total{
   .editGrid{
     grid-template-columns: 1fr;
   }
+  .sectionCreateRow{
+    grid-template-columns:1fr;
+  }
+  .sectionCreateRow .btn{
+    width:100%;
+  }
 }
 
 /* =====================================================
@@ -1788,4 +1868,91 @@ body.pedidosya-mode .footer{
   max-width: none !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
+}
+
+/* Más de 6 productos visibles: listado compacto para aprovechar la pantalla. */
+#products-grid.is-compact-list{
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+}
+
+#products-grid.is-compact-list .product.card{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 7px 9px 7px 12px;
+  border-radius: 13px;
+}
+
+#products-grid.is-compact-list .product .row,
+#products-grid.is-compact-list .product .row > div:first-child{
+  min-width: 0;
+}
+
+#products-grid.is-compact-list .product .row{
+  align-items: center;
+}
+
+#products-grid.is-compact-list .product h2{
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#products-grid.is-compact-list .product .muted,
+#products-grid.is-compact-list .product .pill{
+  display: none;
+}
+
+#products-grid.is-compact-list .product .counter{
+  display: grid;
+  grid-template-columns: 34px 46px 34px;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+
+#products-grid.is-compact-list .product .counterIconBtnPlus{
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#products-grid.is-compact-list .product .qty{
+  grid-column: 2;
+  grid-row: 1;
+  width: 46px;
+  min-width: 0;
+  height: 34px;
+  padding: 4px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+#products-grid.is-compact-list .product .counterIconBtnMinus{
+  grid-column: 3;
+  grid-row: 1;
+}
+
+#tab-cobrar #products-grid.is-compact-list .product .counter .btn.ghost{
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+#tab-cobrar #products-grid.is-compact-list .product .counter .counterIconBtn > span{
+  width: 18px;
+  height: 18px;
+}
+
+#tab-cobrar #products-grid.is-compact-list .product .counter .counterIconBtn > span::before,
+#tab-cobrar #products-grid.is-compact-list .product .counter .counterIconBtn > span::after{
+  width: 15px;
+  height: 3px;
 }

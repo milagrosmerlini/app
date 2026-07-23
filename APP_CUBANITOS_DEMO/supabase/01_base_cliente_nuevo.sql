@@ -85,16 +85,28 @@ $$;
 -- Tablas principales
 -- ---------------------------
 
+create table if not exists public.product_sections (
+  demo_id text not null references public.app_demos(id) on delete cascade,
+  id text not null,
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  primary key (demo_id, id)
+);
+
 create table if not exists public.products (
   demo_id text not null references public.app_demos(id) on delete cascade,
   sku text not null,
   name text not null,
   unit text not null default 'Unidad',
+  section_id text not null default 'cubanitos',
   price_presencial numeric(12,2) not null default 0,
   price_pedidosya numeric(12,2) not null default 0,
   created_at timestamptz not null default now(),
   primary key (demo_id, sku)
 );
+
+alter table public.products add column if not exists section_id text not null default 'cubanitos';
 
 create table if not exists public.sales (
   demo_id text not null references public.app_demos(id) on delete cascade,
@@ -174,6 +186,8 @@ create table if not exists public.daily_cash_adjustments (
 -- Indices utiles
 -- ---------------------------
 create index if not exists idx_products_demo on public.products(demo_id);
+create index if not exists idx_product_sections_demo on public.product_sections(demo_id, sort_order);
+create unique index if not exists idx_product_sections_demo_name_unique on public.product_sections(demo_id, lower(name));
 create index if not exists idx_sales_demo_day on public.sales(demo_id, day);
 create index if not exists idx_expenses_demo_date on public.expenses(demo_id, date);
 create index if not exists idx_peya_liq_demo_month on public.peya_liquidations(demo_id, month);
@@ -185,6 +199,7 @@ create index if not exists idx_carryover_hist_demo_month on public.monthly_carry
 alter table public.app_demos enable row level security;
 alter table public.app_demo_access_codes enable row level security;
 alter table public.app_demo_admins enable row level security;
+alter table public.product_sections enable row level security;
 alter table public.products enable row level security;
 alter table public.sales enable row level security;
 alter table public.expenses enable row level security;
@@ -198,6 +213,8 @@ alter table public.admins enable row level security;
 drop policy if exists app_demos_select_all on public.app_demos;
 drop policy if exists app_demos_write_admin on public.app_demos;
 drop policy if exists app_demo_codes_write_admin on public.app_demo_access_codes;
+drop policy if exists product_sections_select_all on public.product_sections;
+drop policy if exists product_sections_write_admin on public.product_sections;
 drop policy if exists app_demo_admins_select_self on public.app_demo_admins;
 drop policy if exists app_demo_admins_write_global_admin on public.app_demo_admins;
 drop policy if exists products_select_all on public.products;
@@ -224,6 +241,10 @@ for select to anon, authenticated
 using (is_active = true);
 
 create policy products_select_all on public.products
+for select to anon, authenticated
+using (true);
+
+create policy product_sections_select_all on public.product_sections
 for select to anon, authenticated
 using (true);
 
@@ -272,6 +293,11 @@ using (public.is_global_admin())
 with check (public.is_global_admin());
 
 create policy products_write_admin on public.products
+for all to authenticated
+using (public.is_demo_admin(demo_id))
+with check (public.is_demo_admin(demo_id));
+
+create policy product_sections_write_admin on public.product_sections
 for all to authenticated
 using (public.is_demo_admin(demo_id))
 with check (public.is_demo_admin(demo_id));
@@ -329,6 +355,7 @@ grant execute on function public.is_global_admin() to authenticated;
 grant execute on function public.is_demo_admin(text) to authenticated;
 
 grant select on public.app_demos to anon, authenticated;
+grant select on public.product_sections to anon, authenticated;
 grant select on public.products to anon, authenticated;
 grant select on public.sales to anon, authenticated;
 grant select on public.expenses to anon, authenticated;
@@ -345,6 +372,7 @@ grant update, delete on public.sales to authenticated;
 grant insert, update, delete on public.app_demos to authenticated;
 grant insert, update, delete on public.app_demo_access_codes to authenticated;
 grant insert, update, delete on public.app_demo_admins to authenticated;
+grant insert, update, delete on public.product_sections to authenticated;
 grant insert, update, delete on public.products to authenticated;
 grant insert, update, delete on public.expenses to authenticated;
 grant insert, update, delete on public.monthly_carryovers to authenticated;

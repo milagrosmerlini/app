@@ -32,23 +32,34 @@ delete from public.monthly_carryover_history where demo_id in ('demo', 'patagoni
 delete from public.monthly_carryovers where demo_id in ('demo', 'patagonia', 'palihue') and month = '2026-03';
 
 -- Productos demo
-insert into public.products (demo_id, sku, name, unit, price_presencial, price_pedidosya)
+insert into public.product_sections (demo_id, id, name, sort_order)
 values
-  ('demo', 'cubanito_comun', 'Cubanito comun', 'Unidad', 1000, 1000),
-  ('demo', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 1300, 1300),
-  ('demo', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 1300, 1300),
-  ('demo', 'garrapinadas', 'Garrapinadas', 'Bolsa', 1200, 1200),
-  ('patagonia', 'cubanito_comun', 'Cubanito comun', 'Unidad', 1200, 1200),
-  ('patagonia', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 1500, 1500),
-  ('patagonia', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 1500, 1500),
-  ('patagonia', 'garrapinadas', 'Garrapinadas', 'Bolsa', 1400, 1400),
-  ('palihue', 'cubanito_comun', 'Cubanito comun', 'Unidad', 1200, 1200),
-  ('palihue', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 1500, 1500),
-  ('palihue', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 1500, 1500),
-  ('palihue', 'garrapinadas', 'Garrapinadas', 'Bolsa', 1400, 1400)
+  ('demo', 'cubanitos', 'Cubanitos', 0),
+  ('demo', 'extras', 'Extras', 1),
+  ('palihue', 'cubanitos', 'Cubanitos', 0),
+  ('palihue', 'extras', 'Extras', 1)
+on conflict (demo_id, id) do update set
+  name = excluded.name,
+  sort_order = excluded.sort_order;
+
+insert into public.products (demo_id, sku, name, unit, section_id, price_presencial, price_pedidosya)
+values
+  ('demo', 'cubanito_comun', 'Cubanito comun', 'Unidad', 'cubanitos', 1000, 1000),
+  ('demo', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 'cubanitos', 1300, 1300),
+  ('demo', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 'cubanitos', 1300, 1300),
+  ('demo', 'garrapinadas', 'Garrapinadas', 'Bolsa', 'extras', 1200, 1200),
+  ('patagonia', 'cubanito_comun', 'Cubanito comun', 'Unidad', 'cubanitos', 1200, 1200),
+  ('patagonia', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 'cubanitos', 1500, 1500),
+  ('patagonia', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 'cubanitos', 1500, 1500),
+  ('patagonia', 'garrapinadas', 'Garrapinadas', 'Bolsa', 'cubanitos', 1400, 1400),
+  ('palihue', 'cubanito_comun', 'Cubanito comun', 'Unidad', 'cubanitos', 1200, 1200),
+  ('palihue', 'cubanito_negro', 'Cubanito choco negro', 'Unidad', 'cubanitos', 1500, 1500),
+  ('palihue', 'cubanito_blanco', 'Cubanito choco blanco', 'Unidad', 'cubanitos', 1500, 1500),
+  ('palihue', 'garrapinadas', 'Garrapinadas', 'Bolsa', 'extras', 1400, 1400)
 on conflict (demo_id, sku) do update set
   name = excluded.name,
   unit = excluded.unit,
+  section_id = excluded.section_id,
   price_presencial = excluded.price_presencial,
   price_pedidosya = excluded.price_pedidosya;
 

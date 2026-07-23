@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Plantilla Carrito</title>
 
-  <link rel="stylesheet" href="style.css?v=20260313-1">
+  <link rel="stylesheet" href="style.css?v=20260723-3">
   <link rel="manifest" href="manifest.json?v=20260312-1">
   <meta name="theme-color" content="#c97a2b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,6 +61,7 @@
           <span>Fecha de la venta</span>
           <input id="sale-date" type="date" lang="es-AR" />
         </label>
+        <div id="product-sections-tabs" class="productSectionTabs" role="tablist" aria-label="Secciones de productos"></div>
       </div>
 
       <div class="grid" id="products-grid"></div>
@@ -686,6 +687,20 @@
     ========================== -->
     <section class="panel" id="tab-editar">
       <div class="card centeredCard">
+        <h3>Secciones de productos</h3>
+        <p class="tiny muted">Creá las secciones que después aparecen como pestañas en Cobrar.</p>
+        <div id="product-sections-editor" class="sectionEditorList"></div>
+        <div class="sectionCreateRow">
+          <label class="field">
+            <span>Nueva sección</span>
+            <input id="new-section-name" type="text" maxlength="40" placeholder="Ej: Bebidas" />
+          </label>
+          <button class="btn" id="btn-add-section" type="button">Crear sección</button>
+        </div>
+        <p class="tiny muted" id="section-msg"></p>
+      </div>
+
+      <div class="card centeredCard" style="margin-top:12px;">
         <h3>Editar productos</h3>
         <p class="tiny muted lockedNote" id="catalog-lock-note"></p>
         <div id="price-editor-list" class="priceEditorList"></div>
@@ -707,6 +722,10 @@
           <label class="field">
             <span>Unidad</span>
             <input id="new-product-unit" type="text" placeholder="Unidad / Bolsa / Caja" />
+          </label>
+          <label class="field">
+            <span>Sección</span>
+            <select id="new-product-section"></select>
           </label>
           <label class="field">
             <span>Precio Presencial</span>
@@ -830,7 +849,7 @@
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
   <script src="vendor/xlsx/xlsx.full.min.js?v=20260312-1"></script>
-  <script src="app.js?v=20260313-1"></script>
+  <script src="app.js?v=20260723-3"></script>
 </body>
 </html>
 

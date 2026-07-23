@@ -3,10 +3,10 @@
 // =====================================================
 const APP_CONFIG = window.APP_CONFIG || {};
 const DEFAULT_PRODUCTS_FALLBACK = [
-  { sku: "cubanito_comun", name: "Cubanito comun", unit: "Unidad", prices: { presencial: 1000, pedidosya: 1300 } },
-  { sku: "cubanito_negro", name: "Cubanito choco negro", unit: "Unidad", prices: { presencial: 1300, pedidosya: 1900 } },
-  { sku: "cubanito_blanco", name: "Cubanito choco blanco", unit: "Unidad", prices: { presencial: 1300, pedidosya: 1900 } },
-  { sku: "garrapinadas", name: "Garrapiñadas", unit: "Bolsa", prices: { presencial: 1200, pedidosya: 1600 } },
+  { sku: "cubanito_comun", name: "Cubanito comun", unit: "Unidad", section_id: "cubanitos", prices: { presencial: 1000, pedidosya: 1300 } },
+  { sku: "cubanito_negro", name: "Cubanito choco negro", unit: "Unidad", section_id: "cubanitos", prices: { presencial: 1300, pedidosya: 1900 } },
+  { sku: "cubanito_blanco", name: "Cubanito choco blanco", unit: "Unidad", section_id: "cubanitos", prices: { presencial: 1300, pedidosya: 1900 } },
+  { sku: "garrapinadas", name: "Garrapiñadas", unit: "Bolsa", section_id: "extras", prices: { presencial: 1200, pedidosya: 1600 } },
 ];
 const DEFAULT_PRODUCTS = Array.isArray(APP_CONFIG.DEFAULT_PRODUCTS) && APP_CONFIG.DEFAULT_PRODUCTS.length
   ? APP_CONFIG.DEFAULT_PRODUCTS
@@ -37,6 +37,7 @@ let activeDemo = {
 };
 
 let products = [];
+let productSections = [];
 let sales = [];
 let expenses = [];
 let session = null;
@@ -44,6 +45,7 @@ let isAdmin = false;
 const FORCE_GUEST_KEY = storageKey("force_guest");
 const ACTIVE_TAB_KEY = storageKey("active_tab");
 const LS_PRODUCTS_KEY = storageKey("products_cache");
+const LS_PRODUCT_SECTIONS_KEY = storageKey("product_sections_cache");
 const LS_SALES_KEY = storageKey("sales_cache");
 const LS_EXPENSES_KEY = storageKey("expenses_cache");
 const LS_CASH_ADJUST_BY_DAY_KEY = storageKey("cash_adjust_by_day");
@@ -89,6 +91,7 @@ let liveSyncVisibilityBound = false;
 let salesLoadState = "unknown";
 let expensesLoadState = "unknown";
 let productsGridSignature = "";
+let activeProductSectionId = "";
 let deferredUiInitDone = false;
 const INFO_STATS_MIN_DAY_KEY = "2026-03-05";
 const INFO_STATS_EXCLUDED_DAY_KEYS = new Set(["2026-02-01", "2026-02-03", "2026-02-04"]);
@@ -292,6 +295,7 @@ const histSalesMoreWrapEl = $("#hist-sales-more-wrap");
 const btnHistSalesMoreEl = $("#btn-hist-sales-more");
 const btnHistoryBack = $("#btn-history-back");
 const productsGridEl = $("#products-grid");
+const productSectionsTabsEl = $("#product-sections-tabs");
 
 // Gastos UI
 const btnExpenseAdd = $("#btn-expense-add");
@@ -376,6 +380,7 @@ const LS_EXPENSE_PROVIDERS_KEY = storageKey("expense_providers");
 const LS_EXPENSE_DESCRIPTIONS_KEY = storageKey("expense_descriptions");
 const LOCAL_DATA_CACHE_KEYS = [
   LS_PRODUCTS_KEY,
+  LS_PRODUCT_SECTIONS_KEY,
   LS_SALES_KEY,
   LS_EXPENSES_KEY,
   LS_CARRYOVER_BY_MONTH_KEY,
@@ -410,12 +415,94 @@ const priceEditorListEl = $("#price-editor-list");
 const promoEditorListEl = $("#promo-editor-list");
 const catalogMsgEl = $("#catalog-msg");
 const btnAddProduct = $("#btn-add-product");
+const productSectionsEditorEl = $("#product-sections-editor");
+const newSectionNameEl = $("#new-section-name");
+const newProductSectionEl = $("#new-product-section");
+const btnAddSection = $("#btn-add-section");
+const sectionMsgEl = $("#section-msg");
 
 const tabPresencial = $("#tab-presencial");
 const tabPedidosYa = $("#tab-pedidosya");
 
 let pedidosyaDiscountPct = 0;
 let expandedPriceEditorSku = "";
+
+const DEFAULT_PRODUCT_SECTIONS = [
+  { id: "cubanitos", name: "Cubanitos", sort_order: 0 },
+  { id: "extras", name: "Extras", sort_order: 1 },
+];
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function normalizeSectionId(value) {
+  return slugifySku(value) || "cubanitos";
+}
+
+function getProductSection(sectionId) {
+  return productSections.find((section) => section.id === sectionId) || null;
+}
+
+function normalizeProductSections() {
+  const seenIds = new Set();
+  const canonicalByName = new Map();
+  const sectionAliases = new Map();
+  productSections = productSections
+    .map((section, index) => ({
+      id: normalizeSectionId(section?.id || section?.name),
+      name: String(section?.name || "Sin nombre").trim() || "Sin nombre",
+      sort_order: Number.isFinite(Number(section?.sort_order)) ? Number(section.sort_order) : index,
+    }))
+    .filter((section) => {
+      const nameKey = normalizeSectionId(section.name);
+      const canonical = canonicalByName.get(nameKey);
+      if (seenIds.has(section.id) || canonical) {
+        if (canonical) sectionAliases.set(section.id, canonical.id);
+        return false;
+      }
+      seenIds.add(section.id);
+      canonicalByName.set(nameKey, section);
+      return true;
+    })
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "es"));
+
+  for (const product of products) {
+    const normalizedId = normalizeSectionId(product.section_id || "cubanitos");
+    product.section_id = sectionAliases.get(normalizedId) || normalizedId;
+    if (!seenIds.has(product.section_id)) {
+      const name = product.section_id
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+      productSections.push({ id: product.section_id, name: name || "Cubanitos", sort_order: productSections.length });
+      seenIds.add(product.section_id);
+    }
+  }
+
+  if (!productSections.length) productSections = structuredClone(DEFAULT_PRODUCT_SECTIONS);
+  if (!productSections.some((section) => section.id === activeProductSectionId)) {
+    activeProductSectionId = productSections[0]?.id || "";
+  }
+}
+
+function setSectionMsg(text) {
+  if (sectionMsgEl) sectionMsgEl.textContent = text || "";
+}
+
+function isMissingProductSectionsSchemaError(error) {
+  const detail = `${error?.code || ""} ${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+  return detail.includes("section_id")
+    || detail.includes("product_sections")
+    || detail.includes("pgrst204")
+    || detail.includes("pgrst205");
+}
 
 function getSkus() {
   const rank = { cubanito_comun: 1, cubanito_negro: 2, cubanito_blanco: 3, garrapinadas: 4 };
@@ -1531,11 +1618,22 @@ async function loadProductsFromDB() {
     const fallback = loadListCache(LS_PRODUCTS_KEY);
     return fallback.length ? fallback : null;
   }
-  const { data, error } = await window.supabase
+  const cachedBySku = new Map(loadListCache(LS_PRODUCTS_KEY).map((product) => [String(product.sku || ""), product]));
+  let hasSectionColumn = true;
+  let { data, error } = await window.supabase
     .from("products")
-    .select("sku,name,unit,price_presencial,price_pedidosya,created_at")
+    .select("sku,name,unit,section_id,price_presencial,price_pedidosya,created_at")
     .eq("demo_id", activeDemo.id)
     .order("created_at", { ascending: true });
+
+  if (error && String(error.message || "").includes("section_id")) {
+    hasSectionColumn = false;
+    ({ data, error } = await window.supabase
+      .from("products")
+      .select("sku,name,unit,price_presencial,price_pedidosya,created_at")
+      .eq("demo_id", activeDemo.id)
+      .order("created_at", { ascending: true }));
+  }
 
   if (error) {
     console.error(error);
@@ -1554,6 +1652,11 @@ async function loadProductsFromDB() {
       sku,
       name: sku === "garrapinadas" ? "Garrapiñadas" : baseName,
       unit: String(r.unit || "Unidad"),
+      section_id: normalizeSectionId(
+        hasSectionColumn
+          ? r.section_id || "cubanitos"
+          : cachedBySku.get(sku)?.section_id || (sku === "garrapinadas" ? "extras" : "cubanitos")
+      ),
       prices: {
         presencial: Number(r.price_presencial || 0),
         pedidosya: Number(r.price_pedidosya || 0),
@@ -1571,6 +1674,54 @@ async function loadProductsFromDB() {
   return list;
 }
 
+async function loadProductSectionsFromDB() {
+  const fallback = loadListCache(LS_PRODUCT_SECTIONS_KEY);
+  if (!hasSupabaseClient()) return fallback.length ? fallback : structuredClone(DEFAULT_PRODUCT_SECTIONS);
+  const { data, error } = await window.supabase
+    .from("product_sections")
+    .select("id,name,sort_order")
+    .eq("demo_id", activeDemo.id)
+    .order("sort_order", { ascending: true });
+  if (error) {
+    console.error(error);
+    return fallback.length ? fallback : structuredClone(DEFAULT_PRODUCT_SECTIONS);
+  }
+  const list = (data || []).map((section) => ({
+    id: normalizeSectionId(section.id || section.name),
+    name: String(section.name || "Sin nombre"),
+    sort_order: Number(section.sort_order || 0),
+  }));
+  const next = list.length ? list : structuredClone(DEFAULT_PRODUCT_SECTIONS);
+  saveListCache(LS_PRODUCT_SECTIONS_KEY, next);
+  return next;
+}
+
+async function upsertProductSectionToDB(section) {
+  if (!hasSupabaseClient()) throw new Error("Sin internet. No se pudo sincronizar la sección.");
+  const payload = {
+    demo_id: activeDemo.id,
+    id: section.id,
+    name: section.name,
+    sort_order: Number(section.sort_order || 0),
+  };
+  const { error } = await window.supabase.from("product_sections").upsert(payload, { onConflict: "demo_id,id" });
+  if (error && isMissingProductSectionsSchemaError(error)) return false;
+  if (error) throw error;
+  return true;
+}
+
+async function deleteProductSectionFromDB(sectionId) {
+  if (!hasSupabaseClient()) throw new Error("Sin internet. No se pudo eliminar la sección.");
+  const { error } = await window.supabase
+    .from("product_sections")
+    .delete()
+    .eq("demo_id", activeDemo.id)
+    .eq("id", sectionId);
+  if (error && isMissingProductSectionsSchemaError(error)) return false;
+  if (error) throw error;
+  return true;
+}
+
 async function upsertProductToDB(p) {
   if (!hasSupabaseClient()) throw new Error("Sin internet. No se pudo sincronizar el producto.");
   const payload = {
@@ -1578,11 +1729,33 @@ async function upsertProductToDB(p) {
     sku: p.sku,
     name: p.sku === "garrapinadas" ? "Garrapiñadas" : p.name,
     unit: p.unit || "Unidad",
+    section_id: normalizeSectionId(p.section_id || "cubanitos"),
     price_presencial: Number(p.prices?.presencial || 0),
     price_pedidosya: Number(p.prices?.pedidosya || 0),
   };
-  const { error } = await window.supabase.from("products").upsert(payload, { onConflict: "demo_id,sku" });
+  let cloudSection = true;
+  let { error } = await window.supabase.from("products").upsert(payload, { onConflict: "demo_id,sku" });
+  if (error && isMissingProductSectionsSchemaError(error)) {
+    const { section_id: _sectionId, ...legacyPayload } = payload;
+    ({ error } = await window.supabase.from("products").upsert(legacyPayload, { onConflict: "demo_id,sku" }));
+    cloudSection = false;
+  }
   if (error) throw error;
+  const verifyColumns = cloudSection ? "section_id,price_presencial" : "price_presencial";
+  const { data: savedProduct, error: verifyError } = await window.supabase
+    .from("products")
+    .select(verifyColumns)
+    .eq("demo_id", activeDemo.id)
+    .eq("sku", p.sku)
+    .single();
+  if (verifyError) throw verifyError;
+  if (
+    Number(savedProduct?.price_presencial || 0) !== payload.price_presencial
+    || (cloudSection && normalizeSectionId(savedProduct?.section_id) !== payload.section_id)
+  ) {
+    throw new Error("Supabase no confirmó los cambios. Volvé a intentar.");
+  }
+  return { cloudSection };
 }
 
 async function deleteProductBySku(sku) {
@@ -2395,19 +2568,46 @@ function buildProductsGridSignature(skus) {
       const p = getProduct(sku) || {};
       const pp = Number(p?.prices?.presencial || 0);
       const py = Number(p?.prices?.pedidosya || 0);
-      return `${sku}:${String(p.name || "")}:${String(p.unit || "")}:${pp}:${py}`;
+      return `${sku}:${String(p.name || "")}:${String(p.unit || "")}:${String(p.section_id || "")}:${pp}:${py}`;
     })
     .join("|");
-  return `${activeChannel}::${productPart}`;
+  const sectionPart = productSections.map((section) => `${section.id}:${section.name}:${section.sort_order}`).join("|");
+  return `${activeChannel}:${activeProductSectionId}:${sectionPart}::${productPart}`;
+}
+
+function renderProductSectionTabs() {
+  if (!productSectionsTabsEl) return;
+  normalizeProductSections();
+  productSectionsTabsEl.innerHTML = productSections
+    .map((section) => `
+      <button
+        class="productSectionTab${section.id === activeProductSectionId ? " is-active" : ""}"
+        type="button"
+        role="tab"
+        aria-selected="${section.id === activeProductSectionId ? "true" : "false"}"
+        data-product-section="${section.id}"
+      >${escapeHtml(section.name)}</button>
+    `)
+    .join("");
 }
 
 function renderProductsGrid() {
   if (!productsGridEl) return;
-  const skus = getSkus();
+  normalizeProductSections();
+  renderProductSectionTabs();
+  const skus = getSkus().filter((sku) => normalizeSectionId(getProduct(sku)?.section_id) === activeProductSectionId);
+  productsGridEl.classList.toggle("is-compact-list", skus.length > 6);
 
-  if (!skus.length) {
+  if (!products.length) {
     productsGridSignature = "";
     productsGridEl.innerHTML = `<div class="card" style="grid-column:1/-1;"><strong>No hay productos.</strong><p class="muted tiny">Cargalos en Supabase (tabla products).</p></div>`;
+    return;
+  }
+
+  if (!skus.length) {
+    productsGridSignature = buildProductsGridSignature([]);
+    const sectionName = getProductSection(activeProductSectionId)?.name || "esta sección";
+    productsGridEl.innerHTML = `<div class="card productSectionEmpty"><strong>${escapeHtml(sectionName)}</strong><p class="muted tiny">Todavía no tiene productos. Podés asignarlos desde Editar.</p></div>`;
     return;
   }
 
@@ -2450,6 +2650,16 @@ function renderProductsGrid() {
   renderCart();
 }
 
+productSectionsTabsEl?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-product-section]");
+  if (!button) return;
+  const sectionId = normalizeSectionId(button.getAttribute("data-product-section"));
+  if (!getProductSection(sectionId) || sectionId === activeProductSectionId) return;
+  activeProductSectionId = sectionId;
+  productsGridSignature = "";
+  renderProductsGrid();
+});
+
 productsGridEl?.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
@@ -2477,6 +2687,29 @@ productsGridEl?.addEventListener("input", (e) => {
 });
 
 function renderEdit() {
+  normalizeProductSections();
+  if (productSectionsEditorEl) {
+    productSectionsEditorEl.innerHTML = productSections
+      .map((section) => {
+        const count = products.filter((product) => normalizeSectionId(product.section_id) === section.id).length;
+        return `
+          <div class="sectionEditorRow" data-section-row="${section.id}">
+            <div class="sectionEditorInfo">
+              <strong>${escapeHtml(section.name)}</strong>
+              <span class="tiny muted">${count} ${count === 1 ? "producto" : "productos"}</span>
+            </div>
+            <button class="btn danger ghost tinyBtn" type="button" data-delete-section="${section.id}"${count ? " disabled" : ""}>Eliminar</button>
+          </div>
+        `;
+      })
+      .join("");
+  }
+  if (newProductSectionEl) {
+    const selected = normalizeSectionId(newProductSectionEl.value || activeProductSectionId);
+    newProductSectionEl.innerHTML = productSections
+      .map((section) => `<option value="${section.id}"${section.id === selected ? " selected" : ""}>${escapeHtml(section.name)}</option>`)
+      .join("");
+  }
   if (promoEditorListEl) {
     promoEditorListEl.innerHTML = `
       <div class="priceEditorRow promoCreatorRow">
@@ -2509,6 +2742,9 @@ function renderEdit() {
     .map(
       (p) => {
         const isOpen = p.sku === expandedPriceEditorSku;
+        const sectionOptions = productSections
+          .map((section) => `<option value="${section.id}"${section.id === normalizeSectionId(p.section_id) ? " selected" : ""}>${escapeHtml(section.name)}</option>`)
+          .join("");
         return `
     <div class="priceEditorRow${isOpen ? " is-open" : ""}" data-sku="${p.sku}">
       <button class="priceEditorToggle" type="button" data-toggle-price-editor="${p.sku}" aria-expanded="${isOpen ? "true" : "false"}">
@@ -2517,6 +2753,7 @@ function renderEdit() {
       </button>
       <div class="editPrices priceEditorDetails">
         <label class="field"><span>Presencial</span><input type="number" min="0" step="50" data-price-edit="presencial" data-sku="${p.sku}" value="${p.prices.presencial}" /></label>
+        <label class="field"><span>Sección</span><select data-section-edit data-sku="${p.sku}">${sectionOptions}</select></label>
         <div class="actions" style="grid-column:1/-1; margin-top:6px;">
           <button class="btn tinyBtn" type="button" data-save-product="${p.sku}">Guardar cambios</button>
           <button class="btn danger ghost tinyBtn" type="button" data-delete-product="${p.sku}">Eliminar producto</button>
@@ -2537,21 +2774,36 @@ priceEditorListEl?.addEventListener("click", async (e) => {
     if (!sku || !p) return;
     const row = saveBtn.closest(".priceEditorRow");
     const inpPres = row?.querySelector?.(`[data-price-edit="presencial"][data-sku="${sku}"]`);
-    if (!inpPres) return setCatalogMsg("No se pudo leer el precio.");
+    const sectionSelect = row?.querySelector?.(`[data-section-edit][data-sku="${sku}"]`);
+    if (!inpPres || !sectionSelect) return setCatalogMsg("No se pudieron leer los cambios.");
 
     const nextPres = Math.max(0, Number(inpPres.value || 0));
-    const changed = Number(p.prices?.presencial || 0) !== nextPres;
-    p.prices.presencial = nextPres;
+    const nextSectionId = normalizeSectionId(sectionSelect.value);
+    const changed = Number(p.prices?.presencial || 0) !== nextPres || normalizeSectionId(p.section_id) !== nextSectionId;
+    const nextProduct = {
+      ...p,
+      section_id: nextSectionId,
+      prices: { ...p.prices, presencial: nextPres },
+    };
 
     try {
-      await upsertProductToDB(p);
+      saveBtn.disabled = true;
+      const saveResult = await upsertProductToDB(nextProduct);
+      p.prices.presencial = nextPres;
+      p.section_id = nextSectionId;
       saveListCache(LS_PRODUCTS_KEY, products);
       renderProductsGrid();
       renderAll();
-      setCatalogMsg(changed ? `Cambios guardados: ${p.name}.` : `Sin cambios en ${p.name}.`);
+      if (!saveResult.cloudSection && changed) {
+        setCatalogMsg(`Cambios guardados en este dispositivo: ${p.name}. Ejecutá la migración 05 para sincronizar la sección en la nube.`);
+      } else {
+        setCatalogMsg(changed ? `Cambios guardados: ${p.name}.` : `Sin cambios en ${p.name}.`);
+      }
     } catch (err) {
       console.error(err);
       setCatalogMsg(`Error guardando cambios de ${p.name}: ${err?.message || "sin detalle"}`);
+    } finally {
+      saveBtn.disabled = false;
     }
     return;
   }
@@ -2604,6 +2856,67 @@ priceEditorListEl?.addEventListener("click", async (e) => {
   toggle.setAttribute("aria-expanded", "true");
 });
 
+btnAddSection?.addEventListener("click", async () => {
+  if (!isAdmin) return setSectionMsg("Solo admin puede crear secciones.");
+  const name = String(newSectionNameEl?.value || "").trim();
+  if (!name) return setSectionMsg("Poné un nombre para la sección.");
+  const id = normalizeSectionId(name);
+  const nameKey = normalizeSectionId(name);
+  if (productSections.some((section) => section.id === id || normalizeSectionId(section.name) === nameKey)) {
+    return setSectionMsg("Esa sección ya existe.");
+  }
+  const section = { id, name, sort_order: productSections.length };
+  try {
+    btnAddSection.disabled = true;
+    const savedInCloud = await upsertProductSectionToDB(section);
+    productSections = savedInCloud
+      ? await loadProductSectionsFromDB()
+      : [...productSections, section];
+    normalizeProductSections();
+    activeProductSectionId = id;
+    saveListCache(LS_PRODUCT_SECTIONS_KEY, productSections);
+    if (newSectionNameEl) newSectionNameEl.value = "";
+    productsGridSignature = "";
+    renderAll();
+    setSectionMsg(savedInCloud
+      ? `Sección creada: ${name}.`
+      : `Sección guardada en este dispositivo: ${name}. Ejecutá la migración 05 para sincronizarla en la nube.`);
+  } catch (error) {
+    console.error(error);
+    setSectionMsg("No se pudo crear la sección. Ejecutá la migración 05 en Supabase.");
+  } finally {
+    btnAddSection.disabled = false;
+  }
+});
+
+productSectionsEditorEl?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-delete-section]");
+  if (!button) return;
+  if (!isAdmin) return setSectionMsg("Solo admin puede eliminar secciones.");
+  const sectionId = normalizeSectionId(button.getAttribute("data-delete-section"));
+  const section = getProductSection(sectionId);
+  if (!section) return;
+  if (products.some((product) => normalizeSectionId(product.section_id) === sectionId)) {
+    return setSectionMsg("Mové primero los productos de esa sección.");
+  }
+  if (productSections.length <= 1) return setSectionMsg("Debe quedar al menos una sección.");
+  if (!confirm(`¿Eliminar la sección "${section.name}"?`)) return;
+  try {
+    const deletedInCloud = await deleteProductSectionFromDB(sectionId);
+    productSections = productSections.filter((item) => item.id !== sectionId);
+    activeProductSectionId = productSections[0]?.id || "";
+    saveListCache(LS_PRODUCT_SECTIONS_KEY, productSections);
+    productsGridSignature = "";
+    renderAll();
+    setSectionMsg(deletedInCloud
+      ? `Sección eliminada: ${section.name}.`
+      : `Sección eliminada de este dispositivo: ${section.name}.`);
+  } catch (error) {
+    console.error(error);
+    setSectionMsg("No se pudo eliminar la sección.");
+  }
+});
+
 btnAddProduct?.addEventListener("click", async () => {
   if (!isAdmin) return setCatalogMsg("Solo admin puede agregar productos.");
 
@@ -2611,6 +2924,7 @@ btnAddProduct?.addEventListener("click", async () => {
   const unit = String($("#new-product-unit")?.value || "Unidad").trim() || "Unidad";
   const pp = Math.max(0, Number($("#new-price-presencial")?.value || 0));
   const py = pp;
+  const sectionId = normalizeSectionId(newProductSectionEl?.value || activeProductSectionId);
 
   if (!name) return setCatalogMsg("Pone un nombre.");
 
@@ -2624,10 +2938,10 @@ btnAddProduct?.addEventListener("click", async () => {
     n += 1;
   }
 
-  const newProduct = { sku, name, unit, prices: { presencial: pp, pedidosya: py } };
+  const newProduct = { sku, name, unit, section_id: sectionId, prices: { presencial: pp, pedidosya: py } };
 
   try {
-    await upsertProductToDB(newProduct);
+    const saveResult = await upsertProductToDB(newProduct);
     products.push(newProduct);
     saveListCache(LS_PRODUCTS_KEY, products);
     ensureCartKeys();
@@ -2635,7 +2949,9 @@ btnAddProduct?.addEventListener("click", async () => {
     $("#new-product-name").value = "";
     $("#new-product-unit").value = "";
     $("#new-price-presencial").value = "";
-    setCatalogMsg("Producto guardado en Supabase.");
+    setCatalogMsg(saveResult.cloudSection
+      ? "Producto guardado en Supabase."
+      : "Producto guardado. La sección queda en este dispositivo hasta ejecutar la migración 05.");
   } catch (e) {
     console.error(e);
     setCatalogMsg("Error agregando producto en Supabase.");
@@ -4824,6 +5140,9 @@ window.addEventListener("online", () => {
     resetExpenseForm();
     const cachedProducts = loadListCache(LS_PRODUCTS_KEY);
     products = cachedProducts.length ? cachedProducts : structuredClone(DEFAULT_PRODUCTS);
+    const cachedProductSections = loadListCache(LS_PRODUCT_SECTIONS_KEY);
+    productSections = cachedProductSections.length ? cachedProductSections : structuredClone(DEFAULT_PRODUCT_SECTIONS);
+    normalizeProductSections();
     sales = loadListCache(LS_SALES_KEY);
     expenses = loadListCache(LS_EXPENSES_KEY);
     ensureCartKeys();
@@ -4835,13 +5154,14 @@ window.addEventListener("online", () => {
     await applyAuthState();
     const dbInitPromise = Promise.all([
       loadProductsFromDB(),
+      loadProductSectionsFromDB(),
       loadSalesFromDB(),
       loadExpensesFromDB(),
       loadCarryoversFromDB(),
       loadCarryoverHistoryFromDB(),
       loadPeyaLiquidationsFromDB(),
     ]);
-    const [dbProducts, dbSales, dbExpenses, dbCarryoverByMonth, dbCarryoverHistory, dbPeyaLiquidations] = await dbInitPromise;
+    const [dbProducts, dbProductSections, dbSales, dbExpenses, dbCarryoverByMonth, dbCarryoverHistory, dbPeyaLiquidations] = await dbInitPromise;
 
     if (dbProducts && dbProducts.length) {
       products = dbProducts;
@@ -4855,6 +5175,10 @@ window.addEventListener("online", () => {
         })();
       }
     }
+    productSections = dbProductSections?.length ? dbProductSections : structuredClone(DEFAULT_PRODUCT_SECTIONS);
+    normalizeProductSections();
+    saveListCache(LS_PRODUCTS_KEY, products);
+    saveListCache(LS_PRODUCT_SECTIONS_KEY, productSections);
     applyLoadedSales(dbSales);
     applyLoadedExpenses(dbExpenses);
     carryoverByMonth = dbCarryoverByMonth;
@@ -4901,13 +5225,14 @@ window.addEventListener("online", () => {
       window.supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session = newSession;
         await applyAuthState();
-        const [dbSales, dbExpenses, dbCarryoverByMonth, dbCarryoverHistory, dbPeyaLiquidations, dbProductsReload] = await Promise.all([
+        const [dbSales, dbExpenses, dbCarryoverByMonth, dbCarryoverHistory, dbPeyaLiquidations, dbProductsReload, dbProductSectionsReload] = await Promise.all([
           loadSalesFromDB(),
           loadExpensesFromDB(),
           loadCarryoversFromDB(),
           loadCarryoverHistoryFromDB(),
           loadPeyaLiquidationsFromDB(),
           loadProductsFromDB(),
+          loadProductSectionsFromDB(),
         ]);
         applyLoadedSales(dbSales);
         applyLoadedExpenses(dbExpenses);
@@ -4918,6 +5243,10 @@ window.addEventListener("online", () => {
           products = dbProductsReload;
           ensureCartKeys();
         }
+        if (dbProductSectionsReload?.length) productSections = dbProductSectionsReload;
+        normalizeProductSections();
+        saveListCache(LS_PRODUCTS_KEY, products);
+        saveListCache(LS_PRODUCT_SECTIONS_KEY, productSections);
         renderAll();
         processOfflineQueue();
         startLiveSync();

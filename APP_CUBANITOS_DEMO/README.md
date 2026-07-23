@@ -74,6 +74,7 @@ Ese usuario solo queda como admin del carro `centro`. Puede editar productos, ve
 - `supabase/02_alta_admin.sql`: alta del usuario admin.
 - `supabase/03_seed_demo.sql`: datos de ejemplo para `DEMO2026` y `PATAGONIA2026`.
 - `supabase/04_migrar_base_vieja_a_multi_carro.sql`: convierte una base vieja a multi-carro sin borrar datos.
+- `supabase/05_secciones_productos.sql`: agrega secciones configurables para organizar los productos de Cobrar.
 
 ## Importante
 
